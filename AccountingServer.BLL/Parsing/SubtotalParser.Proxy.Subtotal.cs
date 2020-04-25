@@ -12,156 +12,99 @@ namespace AccountingServer.BLL.Parsing
         {
             /// <inheritdoc />
             public GatheringType GatherType
-            {
-                get
-                {
-                    var text = Mark.Text;
-                    switch (text)
+                => Mark.Text switch
                     {
-                        case "``":
-                            return GatheringType.Zero;
-                        case "`":
-                            return GatheringType.NonZero;
-                        case "!":
-                            return GatheringType.Count;
-                        case "!!":
-                            return GatheringType.VoucherCount;
-                        default:
-                            throw new MemberAccessException("表达式错误");
-                    }
-                }
-            }
+                        "``" => GatheringType.Zero,
+                        "`" => GatheringType.NonZero,
+                        "!" => GatheringType.Count,
+                        "!!" => GatheringType.VoucherCount,
+                        _ => throw new MemberAccessException("表达式错误"),
+                    };
 
             /// <inheritdoc />
             public IReadOnlyList<SubtotalLevel> Levels
-            {
-                get
-                {
-                    var text = SubtotalFields()?.GetText();
-                    if (text == null)
-                        if (subtotalEqui() == null)
-                            return new[]
+                => SubtotalFields()?.GetText() switch
+                    {
+                        null when subtotalEqui() == null => new[]
+                            {
+                                SubtotalLevel.Currency,
+                                SubtotalLevel.Title,
+                                SubtotalLevel.SubTitle,
+                                SubtotalLevel.User,
+                                SubtotalLevel.Content,
+                            },
+                        null => new[]
+                            {
+                                SubtotalLevel.Title,
+                                SubtotalLevel.SubTitle,
+                                SubtotalLevel.User,
+                                SubtotalLevel.Content,
+                            },
+                        "v" => new SubtotalLevel[0],
+                        _ => SubtotalFields()?.GetText().Select(ch => ch switch
                                 {
-                                    SubtotalLevel.Currency,
-                                    SubtotalLevel.Title,
-                                    SubtotalLevel.SubTitle,
-                                    SubtotalLevel.User,
-                                    SubtotalLevel.Content,
-                                };
-                        else
-                            return new[]
-                                {
-                                    SubtotalLevel.Title,
-                                    SubtotalLevel.SubTitle,
-                                    SubtotalLevel.User,
-                                    SubtotalLevel.Content,
-                                };
-
-                    if (text == "v")
-                        return new SubtotalLevel[0];
-
-                    return text
-                        .Select(
-                            ch =>
-                                {
-                                    switch (ch)
-                                    {
-                                        case 't':
-                                            return SubtotalLevel.Title;
-                                        case 's':
-                                            return SubtotalLevel.SubTitle;
-                                        case 'c':
-                                            return SubtotalLevel.Content;
-                                        case 'r':
-                                            return SubtotalLevel.Remark;
-                                        case 'C':
-                                            return SubtotalLevel.Currency;
-                                        case 'U':
-                                            return SubtotalLevel.User;
-                                        case 'd':
-                                            return SubtotalLevel.Day;
-                                        case 'w':
-                                            return SubtotalLevel.Week;
-                                        case 'm':
-                                            return SubtotalLevel.Month;
-                                        case 'y':
-                                            return SubtotalLevel.Year;
-                                    }
-
-                                    throw new MemberAccessException("表达式错误");
+                                    't' => SubtotalLevel.Title,
+                                    's' => SubtotalLevel.SubTitle,
+                                    'c' => SubtotalLevel.Content,
+                                    'r' => SubtotalLevel.Remark,
+                                    'C' => SubtotalLevel.Currency,
+                                    'U' => SubtotalLevel.User,
+                                    'd' => SubtotalLevel.Day,
+                                    'w' => SubtotalLevel.Week,
+                                    'm' => SubtotalLevel.Month,
+                                    'y' => SubtotalLevel.Year,
+                                    _ => throw new MemberAccessException("表达式错误"),
                                 })
-                        .ToList();
-                }
-            }
+                            .ToList(),
+                    };
 
             /// <inheritdoc />
             public AggregationType AggrType
-            {
-                get
-                {
-                    if (subtotalAggr() == null)
-                        return AggregationType.None;
-                    if (subtotalAggr().AllDate() == null &&
-                        subtotalAggr().rangeCore() == null)
-                        return AggregationType.ChangedDay;
-
-                    return AggregationType.EveryDay;
-                }
-            }
+                => subtotalAggr() switch
+                    {
+                        null => AggregationType.None,
+                        var x when x.AllDate() == null && x.rangeCore() == null => AggregationType.ChangedDay,
+                        _ => AggregationType.EveryDay,
+                    };
 
             /// <inheritdoc />
             public SubtotalLevel AggrInterval
-            {
-                get
-                {
-                    if (subtotalAggr() == null)
-                        return SubtotalLevel.None;
-
-                    switch (subtotalAggr().AggrMark().GetText())
+                => subtotalAggr() switch
                     {
-                        case "D":
-                            return SubtotalLevel.Day;
-                        case "W":
-                            return SubtotalLevel.Week;
-                        case "M":
-                            return SubtotalLevel.Month;
-                        case "Y":
-                            return SubtotalLevel.Year;
-                        default:
-                            throw new MemberAccessException("表达式错误");
-                    }
-                }
-            }
+                        null => SubtotalLevel.None,
+                        var x => x.AggrMark().GetText() switch
+                            {
+                                "D" => SubtotalLevel.Day,
+                                "W" => SubtotalLevel.Week,
+                                "M" => SubtotalLevel.Month,
+                                "Y" => SubtotalLevel.Year,
+                                _ => throw new MemberAccessException("表达式错误"),
+                            },
+                    };
 
             /// <inheritdoc />
             public IDateRange EveryDayRange
-            {
-                get
-                {
-                    if (subtotalAggr().AllDate() != null)
-                        return DateFilter.Unconstrained;
-
-                    return subtotalAggr().rangeCore();
-                }
-            }
+                => subtotalAggr() switch
+                    {
+                        var x when x.AllDate() != null => DateFilter.Unconstrained,
+                        _ => subtotalAggr().rangeCore(),
+                    };
 
             /// <inheritdoc />
-            public string EquivalentCurrency =>
-                subtotalEqui() == null
-                    ? null
-                    : subtotalEqui().VoucherCurrency()?.GetText().ParseCurrency() ?? BaseCurrency.Now;
+            public string EquivalentCurrency
+                => subtotalEqui() switch
+                    {
+                        null => null,
+                        var x => x.VoucherCurrency()?.GetText().ParseCurrency() ?? BaseCurrency.Now,
+                    };
 
             /// <inheritdoc />
             public DateTime? EquivalentDate
-            {
-                get
-                {
-                    if (subtotalEqui() == null)
-                        return null;
-
-                    return subtotalEqui().rangeDay() ?? ClientDateTime.Today;
-                }
-            }
+                => subtotalEqui() switch
+                    {
+                        null => (DateTime?)null,
+                        var x => x.rangeDay() ?? ClientDateTime.Today,
+                    };
         }
     }
 }

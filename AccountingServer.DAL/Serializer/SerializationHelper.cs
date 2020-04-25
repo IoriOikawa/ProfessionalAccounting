@@ -46,8 +46,7 @@ namespace AccountingServer.DAL.Serializer
             if (bsonReader.IsEndOfDocument())
                 return false;
 
-            if (read == null)
-                read = bsonReader.ReadName();
+            read ??= bsonReader.ReadName();
             if (read != expected)
                 return false;
 
